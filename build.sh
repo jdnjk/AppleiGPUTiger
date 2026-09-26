@@ -45,12 +45,18 @@ echo "[1/4] Compiling..."
 # class behind `#if defined(KERNEL)` (Xcode passes it for kext targets;
 # a manual clang invocation must add it, otherwise the DriverKit user-space
 # branch is compiled and configRead16 etc. do not exist).
-xcrun clang++ -arch x86_64 -mkernel -DKERNEL \
-    -std=c++17 -fno-exceptions -fno-rtti -fno-stack-protector \
-    -msoft-float -fapple-kext \
-    -I"$SDK/Headers" \
-    $EXTRA_CFLAGS \
-    -c "$SRC/$PRODUCT.cpp" -o "$OUT/$PRODUCT.o"
+OBJS=()
+for src in "$SRC"/*.cpp; do
+    obj="$OUT/$(basename "${src%.cpp}").o"
+    echo "  compiling $(basename "$src")"
+    xcrun clang++ -arch x86_64 -mkernel -DKERNEL \
+        -std=c++17 -fno-exceptions -fno-rtti -fno-stack-protector \
+        -msoft-float -fapple-kext \
+        -I"$SDK/Headers" \
+        $EXTRA_CFLAGS \
+        -c "$src" -o "$obj"
+    OBJS+=("$obj")
+done
 
 echo "[2/4] Linking..."
 # Kext linking differs between linker generations:
@@ -61,7 +67,7 @@ echo "[2/4] Linking..."
 # Try the modern form first, fall back to the classic one.
 link_kext() {
     xcrun ld "$@" \
-        "$OUT/$PRODUCT.o" -lkmod \
+        "${OBJS[@]}" -lkmod \
         -o "$OUT/$PRODUCT"
 }
 

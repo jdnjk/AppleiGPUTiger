@@ -33,6 +33,19 @@
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
 		</dict>
+		<key>Iris Xe Framebuffer</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.tgligpu.kext</string>
+			<key>IOClass</key>
+			<string>AppleIntelTGLFramebuffer</string>
+			<key>IOMatchCategory</key>
+			<string>AppleIntelTGLFramebuffer</string>
+			<key>IOPCIPrimaryMatch</key>
+			<string>0x9A498086</string>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>Reverse-engineering / interoperability project. No warranty.</string>
