@@ -41,7 +41,11 @@ mkdir -p "$OUT/$PRODUCT.kext/Contents/MacOS"
 
 echo "[1/4] Compiling..."
 # Note: '-mkernel' (clang) here; '-kernel' is an ld-only flag used below.
-xcrun clang++ -arch x86_64 -mkernel \
+# -DKERNEL is required: IOKit/pci/IOPCIDevice.h guards the real kernel-side
+# class behind `#if defined(KERNEL)` (Xcode passes it for kext targets;
+# a manual clang invocation must add it, otherwise the DriverKit user-space
+# branch is compiled and configRead16 etc. do not exist).
+xcrun clang++ -arch x86_64 -mkernel -DKERNEL \
     -std=c++17 -fno-exceptions -fno-rtti -fno-stack-protector \
     -msoft-float -fapple-kext \
     -I"$SDK/Headers" \
@@ -49,9 +53,11 @@ xcrun clang++ -arch x86_64 -mkernel \
     -c "$SRC/$PRODUCT.cpp" -o "$OUT/$PRODUCT.o"
 
 echo "[2/4] Linking..."
-# C++ runtime comes from com.apple.kpi.libkern (OSMetaClass etc. are resolved
-# at load time by the kernel); libkmod provides the kmod start/stop wrappers.
-xcrun ld -arch x86_64 -kernel \
+# -static is mandatory with -kernel: kexts have no dynamic linker, all
+# references are statically bound and unresolved symbols (OSMetaClass etc.)
+# are resolved by the kernel's kmod loader at load time.
+# libkmod comes from MacKernelSDK's kmod (kmod_start/kmod_stop wrappers).
+xcrun ld -static -arch x86_64 -kernel \
     -L"$SDK/Library/x86_64" -lkmod \
     -sectcreate __TEXT __info_plist "$SRC/Info.plist" \
     -exported_symbol _kmod_start \

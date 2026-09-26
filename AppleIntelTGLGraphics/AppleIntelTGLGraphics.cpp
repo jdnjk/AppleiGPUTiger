@@ -95,13 +95,15 @@ bool AppleIntelTGLGraphics::mapResources() {
         return false;
     }
     SYSTEMLOGPROV("BAR0 MMIO mapped: 0x%016llx -> 0x%016llx (%llu bytes)",
-                 mmioMap->getPhysicalAddress(), (uint64_t)mmioMap->getVirtualAddress(), mmioMap->getLength());
+                 (unsigned long long)mmioMap->getPhysicalAddress(),
+                 (unsigned long long)mmioMap->getVirtualAddress(),
+                 (unsigned long long)mmioMap->getLength());
 
     // BAR2: GTTMMADR (2 MB on TGL). Some firmwares hide it; absence is not fatal
     // for M1, but GTT programming (M2) depends on it.
     gttMap = pciDevice->mapDeviceMemoryWithIndex(kTGLGTTBARIndex);
     if (gttMap) {
-        SYSTEMLOGPROV("BAR2 GTTMMADR mapped (%llu bytes)", gttMap->getLength());
+        SYSTEMLOGPROV("BAR2 GTTMMADR mapped (%llu bytes)", (unsigned long long)gttMap->getLength());
     } else {
         SYSTEMLOGPROV("BAR2 (GTTMMADR) not present or not mapped — GTT init will need attention");
     }
