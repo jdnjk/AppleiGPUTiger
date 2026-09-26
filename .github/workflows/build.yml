@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build kext
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout MacKernelSDK
+        uses: actions/checkout@v4
+        with:
+          repository: acidanthera/MacKernelSDK
+          path: MacKernelSDK
+
+      - name: Install ldid
+        run: brew install ldid
+
+      - name: Build (Release)
+        run: |
+          chmod +x build.sh
+          MAC_KERNEL_SDK="$GITHUB_WORKSPACE/MacKernelSDK" ./build.sh
+
+      - name: Build (Debug)
+        run: |
+          rm -rf build
+          DEBUG=1 MAC_KERNEL_SDK="$GITHUB_WORKSPACE/MacKernelSDK" ./build.sh
+          mv build/AppleIntelTGLGraphics.kext build/AppleIntelTGLGraphics-DEBUG.kext
+
+      - name: Package
+        run: |
+          cd build
+          zip -qry AppleIntelTGLGraphics.zip AppleIntelTGLGraphics.kext AppleIntelTGLGraphics-DEBUG.kext
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AppleIntelTGLGraphics
+          path: build/AppleIntelTGLGraphics.zip
