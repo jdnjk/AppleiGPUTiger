@@ -53,16 +53,39 @@ xcrun clang++ -arch x86_64 -mkernel -DKERNEL \
     -c "$SRC/$PRODUCT.cpp" -o "$OUT/$PRODUCT.o"
 
 echo "[2/4] Linking..."
-# -static is mandatory with -kernel: kexts have no dynamic linker, all
-# references are statically bound and unresolved symbols (OSMetaClass etc.)
-# are resolved by the kernel's kmod loader at load time.
-# libkmod comes from MacKernelSDK's kmod (kmod_start/kmod_stop wrappers).
-xcrun ld -static -arch x86_64 -kernel \
-    -L"$SDK/Library/x86_64" -lkmod \
-    -sectcreate __TEXT __info_plist "$SRC/Info.plist" \
-    -exported_symbol _kmod_start \
-    -exported_symbol _kmod_stop \
-    "$OUT/$PRODUCT.o" -o "$OUT/$PRODUCT"
+# Kext linking differs between linker generations:
+#   New linker (Xcode 15+ / ld-prime): `-kext` implies static + kernel and
+#     preserves relocations; `-static` and `-keep_relocs` were REMOVED.
+#   Classic ld64 (<= Xcode 14): needs the full
+#     `-static -kernel -kext -keep_relocs` combination.
+# Try the modern form first, fall back to the classic one.
+link_kext() {
+    xcrun ld "$@" \
+        "$OUT/$PRODUCT.o" -lkmod \
+        -o "$OUT/$PRODUCT"
+}
+
+MODERN_ARGS=(-arch x86_64 -kext
+    -L"$SDK/Library/x86_64"
+    -sectcreate __TEXT __info_plist "$SRC/Info.plist"
+    -exported_symbol _kmod_start
+    -exported_symbol _kmod_stop)
+
+CLASSIC_ARGS=(-static -arch x86_64 -kernel -kext -keep_relocs
+    -L"$SDK/Library/x86_64"
+    -sectcreate __TEXT __info_plist "$SRC/Info.plist"
+    -exported_symbol _kmod_start
+    -exported_symbol _kmod_stop)
+
+if ! link_kext "${MODERN_ARGS[@]}" 2>"$OUT/ld.log"; then
+    if grep -qE "unknown options|must be used with" "$OUT/ld.log"; then
+        echo "  new linker rejected the flags, retrying with classic ld64 form"
+        link_kext "${CLASSIC_ARGS[@]}"
+    else
+        cat "$OUT/ld.log"
+        exit 1
+    fi
+fi
 
 echo "[3/4] Assembling kext bundle..."
 cp "$OUT/$PRODUCT" "$OUT/$PRODUCT.kext/Contents/MacOS/$PRODUCT"
