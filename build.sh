@@ -15,7 +15,7 @@
 #    - Xcode 12 or newer with command line tools
 #    - MacKernelSDK: cloned to ../MacKernelSDK, ./MacKernelSDK, or set
 #      MAC_KERNEL_SDK env var (GitHub Actions does the latter)
-#    - ldid in PATH (brew install ldid) for pseudo-signing
+#    - codesign (ships with macOS) for ad-hoc signing
 
 set -e
 
@@ -91,11 +91,14 @@ echo "[3/4] Assembling kext bundle..."
 cp "$OUT/$PRODUCT" "$OUT/$PRODUCT.kext/Contents/MacOS/$PRODUCT"
 cp "$SRC/Info.plist" "$OUT/$PRODUCT.kext/Contents/Info.plist"
 
-echo "[4/4] Pseudo-signing..."
-if command -v ldid >/dev/null; then
-    ldid -S "$OUT/$PRODUCT.kext/Contents/MacOS/$PRODUCT"
-else
-    echo "WARNING: ldid not found; kext is unsigned (OK for OpenCore injection)"
+echo "[4/4] Ad-hoc signing..."
+# `ld -kext` produces an MH_KEXT_BUNDLE (filetype 0xB), which ldid does NOT
+# support (it only handles EXECUTE/DYLIB/DYLINKER/BUNDLE). macOS's own
+# codesign understands kext bundles natively, so use it for ad-hoc signing.
+# An unsigned kext also works when injected by OpenCore, so failure here is
+# non-fatal.
+if ! codesign --force --sign - "$OUT/$PRODUCT.kext" 2>&1; then
+    echo "WARNING: ad-hoc signing failed; kext stays unsigned (OK for OpenCore injection)"
 fi
 
 echo "Done: $OUT/$PRODUCT.kext"

@@ -20,9 +20,6 @@ jobs:
           repository: acidanthera/MacKernelSDK
           path: MacKernelSDK
 
-      - name: Install ldid
-        run: brew install ldid
-
       - name: Build (Release)
         run: |
           chmod +x build.sh
